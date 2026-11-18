@@ -253,3 +253,13 @@ Neutral AHs (Booty Bay, Everlook, Gadgetzan) are a separate market. While one is
 - `/ms neutral auto|always|off` sets the mode: auto (default) detects by the auctioneer's faction, falling back to the town name; always blocks every AH; off disables the protection.
 - `/ms share purge [friend]` deletes the prices received from that friend (or from all friends). If the friend scanned a Neutral AH with an older version, run `/ms share off` first, have them update and run `/ms purge <hours>`, then purge and `/ms share on`.
 - `/ms purge <hours>` deletes the prices and listing counts you recorded in the last N hours (prices received from friends are kept). Use it to remove data from a Neutral AH visit made before 1.2.1.
+
+
+## Disenchant Scan (v1.4)
+
+A **Disenchant Scan** button appears under *Scan Prices* while the Auction House is open (or type `/ms de`). It opens a window beside the Auction House. Press **Scan**: it first refreshes the price of every dust, essence and shard (so the values are current), then browses every green and blue weapon and armour piece on the AH. The window lists the ones that cost less than what they disenchant into, best profit first.
+
+- Profit = disenchant value x 0.95 (the AH cut) minus the lowest buyout. The value uses the dust, essence and shard prices MarketScribe has saved; a `*` means one had no price saved. 
+- **Click a row to buy.** It looks up the cheapest buyout, then asks you to confirm the cost and profit. The game only allows an addon to spend gold on a click, so buying takes two clicks.
+- It does not check your Enchanting skill.
+- `/ms de scan` starts a scan, `/ms de min <silver>` hides anything under that profit (default 1 silver; `/ms de min 0` shows everything profitable).

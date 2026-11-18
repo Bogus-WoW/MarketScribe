@@ -652,6 +652,10 @@ SlashCmdList.MARKETSCRIBE = function(msg)
 		if ns.ShareCommand then
 			ns.ShareCommand(msg:sub(6):match("^%s*(.-)%s*$"))
 		end
+	elseif msg == "de" or msg:sub(1, 3) == "de " then
+		if ns.DECommand then
+			ns.DECommand(msg:sub(3):match("^%s*(.-)%s*$"))
+		end
 	elseif msg == "undercut" then
 		if ns.ToggleUndercutPanel then
 			local on = ns.ToggleUndercutPanel()
@@ -680,7 +684,7 @@ SlashCmdList.MARKETSCRIBE = function(msg)
 		end
 		print(("|cff40c0ffMarketScribe|r: %d AH prices and %d vendor prices cached for %s."):format(ahCount, vendorCount, RealmKey()))
 	else
-		print("|cff40c0ffMarketScribe|r commands: /ms realmtype pve|pvp (keep PvE and PvP prices apart), /ms price <item link, itemID or part of a name> (price check, no AH needed; also /ms pc), /ms scan (queue known reagents/outputs while the AH is open; /ms scan stop or clicking the button while it runs stops it), /ms status, /ms undercut (toggle the undercut panel on the Auctions tab), /ms export (get all cached prices as JSON), /ms debug <recipe name> (dump raw reagent slot data), /ms debug vendor (dump the open merchant's raw item data), /ms forget vendor <item/name text> (drop stored vendor prices, keep AH prices), /ms share list|now|off|on|debug (swap prices with friends on your Friends list), /ms neutral [auto|always|off] (Neutral AH protection), /ms purge <hours> (delete prices/listings recorded in the last N hours), /ms share purge [friend] (delete prices received from friends)")
+		print("|cff40c0ffMarketScribe|r commands: /ms realmtype pve|pvp (keep PvE and PvP prices apart), /ms price <item link, itemID or part of a name> (price check, no AH needed; also /ms pc), /ms scan (queue known reagents/outputs while the AH is open; /ms scan stop or clicking the button while it runs stops it), /ms status, /ms undercut (toggle the undercut panel on the Auctions tab), /ms de (Disenchant Scan window: gear that is cheaper than its disenchant value; /ms de scan, /ms de min <silver>), /ms export (get all cached prices as JSON), /ms debug <recipe name> (dump raw reagent slot data), /ms debug vendor (dump the open merchant's raw item data), /ms forget vendor <item/name text> (drop stored vendor prices, keep AH prices), /ms share list|now|off|on|debug (swap prices with friends on your Friends list), /ms neutral [auto|always|off] (Neutral AH protection), /ms purge <hours> (delete prices/listings recorded in the last N hours), /ms share purge [friend] (delete prices received from friends)")
 	end
 end
 

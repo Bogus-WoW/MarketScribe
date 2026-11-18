@@ -122,6 +122,14 @@ local MATERIAL_IDS = {
 	["Large Brilliant Shard"] = 14344,
 }
 
+-- every dust/essence/shard ID, for the Disenchant Scan's price refresh
+function ns.DEMaterialIDs()
+	local ids = {}
+	for _, id in pairs(MATERIAL_IDS) do ids[#ids + 1] = id end
+	table.sort(ids)
+	return ids
+end
+
 local resolvedIDs = {}
 
 local function ResolveMaterialID(name)
