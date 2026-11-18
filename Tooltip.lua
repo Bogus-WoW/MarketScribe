@@ -27,6 +27,50 @@ local function AddCompareLine(tooltip, deValue, compareValue, label, incomplete)
 	tooltip:AddLine(text)
 end
 
+-- How many of the hovered item are in the stack? Read from the item button the
+-- tooltip is attached to (bags, bank, vendor, loot and so on all keep it there),
+-- or from the bag slot as a fallback. Returns nil if it can't be told.
+local function StackCount(tooltip)
+	local owner = tooltip.GetOwner and tooltip:GetOwner()
+	if type(owner) ~= "table" then return nil end
+	local function Num(v)
+		if issecretvalue and issecretvalue(v) then return nil end
+		v = tonumber(v)
+		return v and v >= 1 and math.floor(v) or nil
+	end
+	local n = Num(owner.count)
+	if n then return n end
+	local fs = owner.Count
+	if not fs and owner.GetName and owner:GetName() then fs = _G[owner:GetName() .. "Count"] end
+	if fs and fs.GetText then
+		n = Num(fs:GetText())
+		if n then return n end
+	end
+	-- an item button with no count text holds a single item (or it's a bag slot we can ask about)
+	if C_Container and C_Container.GetContainerItemInfo and owner.GetParent and owner.GetID then
+		local parent = owner:GetParent()
+		local ok, info = pcall(C_Container.GetContainerItemInfo, parent and parent:GetID(), owner:GetID())
+		if ok and type(info) == "table" then
+			n = Num(info.stackCount)
+			if n then return n end
+		end
+	end
+	if fs or owner.icon or owner.Icon then return 1 end
+	return nil
+end
+
+local function AddStackLine(tooltip, label, each)
+	if not IsShiftKeyDown() then return end
+	local n = StackCount(tooltip)
+	if not n then
+		tooltip:AddLine("|cff888888MarketScribe: can't tell the stack size here|r")
+		return
+	end
+	if n > 1 then
+		tooltip:AddLine(("|cff40c0ffMarketScribe|r %s x%d: %s"):format(label, n, ns.FormatMoney(each * n)))
+	end
+end
+
 local function OnItemTooltip(tooltip)
 	if not (TooltipUtil and TooltipUtil.GetDisplayedItem) then
 		return
@@ -63,6 +107,7 @@ local function OnItemTooltip(tooltip)
 		end
 
 		tooltip:AddLine(("|cff40c0ffMarketScribe|r %s: %s%s"):format(label, ns.FormatMoney(price), suffix))
+		AddStackLine(tooltip, label, price)
 
 		-- When a (cheaper) vendor price wins, still show the AH price if we
 		-- have one -- that's what the item actually sells for.
@@ -71,6 +116,7 @@ local function OnItemTooltip(tooltip)
 			if mPrice then
 				tooltip:AddLine(("|cff40c0ffMarketScribe|r %s: %s |cff888888(%s%s)|r"):format(
 					mSource == "commodity" and "AH (commodity)" or "AH", ns.FormatMoney(mPrice), ns.FormatAge(mTime), listedText))
+				AddStackLine(tooltip, mSource == "commodity" and "AH (commodity)" or "AH", mPrice)
 			end
 		end
 	else
@@ -132,6 +178,22 @@ if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall then
 	TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, OnItemTooltip)
 end
 
+-- Pressing or releasing Shift while an item tooltip is up redraws it, so the
+-- stack price appears (or goes away) without moving the mouse.
+local shiftWatcher = CreateFrame("Frame")
+shiftWatcher:RegisterEvent("MODIFIER_STATE_CHANGED")
+shiftWatcher:SetScript("OnEvent", function(_, _, key)
+	if key ~= "LSHIFT" and key ~= "RSHIFT" then return end
+	if not (GameTooltip and GameTooltip:IsShown()) then return end
+	if GameTooltip.RefreshData then
+		pcall(GameTooltip.RefreshData, GameTooltip)
+	else
+		local owner = GameTooltip:GetOwner()
+		local onEnter = owner and owner.GetScript and owner:GetScript("OnEnter")
+		if onEnter then pcall(onEnter, owner) end
+	end
+end)
+
 --------------------------------------------------------------------------
 -- Gold on all your characters
 --
@@ -145,7 +207,7 @@ local function GoldDB()
 end
 
 -- Forever characters have a first and a last name, and first names aren't
--- unique (two characters can share one), so characters are kept
+-- unique ("Bogus Mcstabby" and "Bogus Thundernap"), so characters are kept
 -- by their GUID, which is unique, with the name stored for display.
 local function NoSpaces(s) return (s or ""):gsub("[%s%-']", ""):lower() end
 
@@ -182,7 +244,7 @@ local function SaveMyGold(confirmed)
 	db[realm] = db[realm] or {}
 	local old = db[realm][key]
 	if money == 0 and not confirmed and old and (old.money or 0) > 0 then return end
-	-- the old name-only entry is ambiguous (two characters with one first name overwrote each other): drop it
+	-- the old name-only entry is ambiguous (two "Bogus" overwrote each other): drop it
 	local legacy = db[realm][name]
 	if guid and legacy and not legacy.guid then db[realm][name] = nil end
 	db[realm][key] = { money = money, class = class, faction = UnitFactionGroup("player"), time = time(),

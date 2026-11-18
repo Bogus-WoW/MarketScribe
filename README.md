@@ -263,3 +263,7 @@ A **Disenchant Scan** button appears under *Scan Prices* while the Auction House
 - **Click a row to buy.** It looks up the cheapest buyout, then asks you to confirm the cost and profit. The game only allows an addon to spend gold on a click, so buying takes two clicks.
 - It does not check your Enchanting skill.
 - `/ms de scan` starts a scan, `/ms de min <silver>` hides anything under that profit (default 1 silver; `/ms de min 0` shows everything profitable).
+
+## Stack price (v1.5)
+
+Hold **Shift** while hovering an item and the tooltip adds the price for the whole stack you're hovering (for example "AH x20: 3.40g"). It reads the stack size from the item slot (bags, bank, vendor, loot and similar). Pressing or releasing Shift redraws the tooltip at once.
