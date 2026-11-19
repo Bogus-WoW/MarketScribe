@@ -246,6 +246,22 @@ function ns.GetMarketPrice(itemID)
 	end
 end
 
+-- The Auction House keeps 5% of every sale. Every sale value MarketScribe
+-- (and SkillScribe, through GetDisenchantEV and GetRecipeProfit) works out
+-- is net of it; costs of buying are not.
+ns.AH_CUT = 0.95
+
+-- What one unit of the item sells for on the AH after the cut, true when
+-- that is what it returned. Falls back to whatever price is on file (not cut,
+-- since that is not an AH sale) when the AH price is unknown.
+function ns.GetSellPrice(itemID)
+	local m = ns.GetMarketPrice(itemID)
+	if m then
+		return m * ns.AH_CUT, true
+	end
+	return (ns.GetPrice(itemID)), false
+end
+
 -- Removes stored vendor prices without touching AH prices. `query` is an
 -- item link, an itemID, or text matched against item names (e.g. "raw "
 -- for all the raw fish). Returns removed names and how many entries were

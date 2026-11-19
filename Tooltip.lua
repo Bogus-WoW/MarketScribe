@@ -154,7 +154,7 @@ local function OnItemTooltip(tooltip)
 	if ns.GetDisenchantEV then
 		local deValue, complete = ns.GetDisenchantEV(id)
 		if deValue then
-			local text = ("|cff40c0ffMarketScribe|r Disenchant (avg): %s"):format(ns.FormatMoney(deValue))
+			local text = ("|cff40c0ffMarketScribe|r Disenchant (avg, after AH cut): %s"):format(ns.FormatMoney(deValue))
 			if not complete then
 				text = text .. " |cff888888~|r"
 			end

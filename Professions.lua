@@ -21,13 +21,39 @@ local function BoPValue(itemID)
 end
 ns.BoPValue = BoPValue
 
-local function FormatProfit(profit, complete)
+-- What a vendor pays for one of the item, nil if unknown/none.
+local function VendorSellValue(itemID)
+	local sell = select(11, C_Item.GetItemInfo(itemID))
+	if sell and sell > 0 then return sell end
+end
+
+-- What one crafted item is worth to you, and whether that is the vendor
+-- price: the better of the AH price (after the 5% cut) and the vendor price. Bind-on-Pickup
+-- items can only be vendored. Third result: true when the AH price is
+-- missing, so the number is a floor (the AH might pay more).
+local function OutputValue(itemID)
+	local bop = BoPValue(itemID)
+	if bop ~= nil then
+		return bop, bop > 0, false
+	end
+	local ah = ns.GetSellPrice(itemID) -- AH after the 5% cut
+	local vendor = VendorSellValue(itemID)
+	if vendor and (not ah or vendor >= ah) then
+		return vendor, true, not ah
+	end
+	return ah, false, false
+end
+
+local function FormatProfit(profit, complete, vendored)
 	if profit == nil then
 		return "|cff888888?|r"
 	end
 	local color = (profit >= 0) and "|cff40ff40" or "|cffff4040"
 	local sign = (profit >= 0) and "+" or "-"
 	local text = color .. sign .. ns.FormatMoney(profit) .. "|r"
+	if vendored then
+		text = text .. " |cff80c0ff(v)|r" -- vendoring beats (or replaces) the AH
+	end
 	if not complete then
 		text = text .. " |cff888888~|r" -- one or more prices are missing/stale
 	end
@@ -112,17 +138,19 @@ local function GetRecipeProfit(recipeID)
 	if ns.QueueItem then
 		ns.QueueItem(outputItemID)
 	end
-	-- Bind on Pickup: it can't be sold on the AH, so it's worth its vendor
-	-- price (0 if none) and the profit shows what crafting it costs you
-	local outputPrice = BoPValue(outputItemID) or ns.GetPrice(outputItemID)
+	-- Worth the better of AH and vendor price; Bind on Pickup items can only
+	-- be vendored (0 if no vendor price), so the profit shows what crafting
+	-- them costs you
+	local outputPrice, vendored, ahMissing = OutputValue(outputItemID)
 	if not outputPrice or cost == nil then
 		return nil
 	end
+	if ahMissing then complete = false end
 	local quantity = ((schematic.quantityMin or 1) + (schematic.quantityMax or schematic.quantityMin or 1)) / 2
 	if quantity <= 0 then
 		quantity = 1
 	end
-	return (outputPrice * quantity) - cost, complete
+	return (outputPrice * quantity) - cost, complete, vendored
 end
 ns.GetRecipeProfit = GetRecipeProfit
 
@@ -145,14 +173,14 @@ local function DecorateRow(self, row, node)
 		return
 	end
 
-	local profit, complete = GetRecipeProfit(info.recipeID)
+	local profit, complete, vendored = GetRecipeProfit(info.recipeID)
 	text:ClearAllPoints()
 	if row.LockedIcon and row.LockedIcon:IsShown() then
 		text:SetPoint("RIGHT", row.LockedIcon, "LEFT", -4, 0)
 	else
 		text:SetPoint("RIGHT", row, "RIGHT", -6, 0)
 	end
-	text:SetText(FormatProfit(profit, complete))
+	text:SetText(FormatProfit(profit, complete, vendored))
 	text:Show()
 end
 

@@ -208,6 +208,12 @@ incomplete, same meaning as elsewhere.
   they aren't confirmed against Forever's data specifically, same caveat as
   the odds/quantities above.
 
+## The 5% Auction House cut (v1.6.2)
+Everything MarketScribe counts as money you would receive is after the Auction House's 5% cut: the profit number in the profession window, and the disenchant estimate (the materials you would sell). SkillScribe uses the same disenchant estimate, so its Smart plan and recipe list follow. What you pay to buy things is never cut, and vendor prices are not cut.
+
+## Vendor value in profession profit (v1.6.1)
+The green/red profit number next to each recipe uses the better of the AH price and what a vendor pays for the crafted item, and adds a blue **(v)** when the vendor is the better outlet (or the item is Bind on Pickup). If the AH price is missing but a vendor price exists, the number shows the vendor profit with the usual grey ~ (the AH may pay more).
+
 ## Price history (v1.6)
 `/ms show` opens a window with the price history of every item MarketScribe has seen, for the last two weeks. Left: a searchable list (name or item ID) and a sort button: **Movers** (biggest price change over the last 3 days), **Cheap now** (lowest against its two-week average), A-Z, Most data, Latest. The **Watched** button shows only the items you have starred; star the selected item with **Watch** at the top right of the graph (watched items get a * in the list, and stay in the Watched list even before they have history). Right: the graph for the selected item with 1D / 3D / 7D / 14D buttons. The gold line is the lowest AH price when it was seen (held flat until the next scan), grey is the average, green the vendor price, and blue bars underneath show how many units were listed. Hover the graph for the exact time, price and count. `/ms show <name, item ID or item link>` opens it straight on an item.
 

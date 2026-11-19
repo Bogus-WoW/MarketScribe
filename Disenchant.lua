@@ -226,7 +226,7 @@ function ns.GetDisenchantEV(itemID)
 		if ns.QueueItem then
 			ns.QueueItem(id)
 		end
-		local price = ns.GetPrice(id)
+		local price = ns.GetSellPrice(id) -- you sell the materials: AH after the 5% cut
 		if price then
 			total = total + chance * qty * price
 		else
