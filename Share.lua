@@ -197,6 +197,7 @@ local function OnMessage(prefix, msg, channel, sender)
 			if price > 0 and (not mine or (mine.time or 0) < t) then
 				store.prices[id] = { price = price, time = t, source = mine and mine.source or "auction", from = name }
 				if MarketScribeDB.wanted then MarketScribeDB.wanted[id] = nil end
+				if ns.RecordHistory then ns.RecordHistory(id, price, t, -1) end
 			end
 			if t > (p.since or 0) then p.since = t end
 		end
@@ -232,6 +233,7 @@ function ns.ShareCommand(rest)
 				removed = removed + 1
 			end
 		end
+		if not who and ns.PurgeFriendHistory then ns.PurgeFriendHistory() end
 		print(tag .. ("removed %d price(s) received from %s. Turn sharing off (/ms share off) until they have updated and cleaned their own data, or they will send them again."):format(removed, who or "friends"))
 	elseif cmd == "debug" then
 		print(tag .. ("you: %s, realm %s, %s, project %s, market %s"):format(UnitName("player"), GetRealmName(), UnitFactionGroup("player"), tostring(WOW_PROJECT_ID), ns.RealmKey()))

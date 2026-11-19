@@ -208,6 +208,13 @@ incomplete, same meaning as elsewhere.
   they aren't confirmed against Forever's data specifically, same caveat as
   the odds/quantities above.
 
+## Price history (v1.6)
+`/ms show` opens a window with the price history of every item MarketScribe has seen, for the last two weeks. Left: a searchable list (name or item ID) and a sort button: **Movers** (biggest price change over the last 3 days), **Cheap now** (lowest against its two-week average), A-Z, Most data, Latest. The **Watched** button shows only the items you have starred; star the selected item with **Watch** at the top right of the graph (watched items get a * in the list, and stay in the Watched list even before they have history). Right: the graph for the selected item with 1D / 3D / 7D / 14D buttons. The gold line is the lowest AH price when it was seen (held flat until the next scan), grey is the average, green the vendor price, and blue bars underneath show how many units were listed. Hover the graph for the exact time, price and count. `/ms show <name, item ID or item link>` opens it straight on an item.
+
+Item tooltips get a line with the 3-day trend: how the lowest AH price has changed over the last three days, and what it was then.
+
+History starts with 1.6.0: before that only the last price per item was kept, so every item begins with the one price it had. Each scan adds a point (a rescan within 10 minutes replaces the last one, an unchanged price is stored again after 6 hours), and prices friends share bring their own scan times, which fills in earlier days. Points older than two weeks are dropped. `/ms purge <hours>` also removes the history points you recorded in that time; `/ms share purge` (without a name) removes friend-sourced points too.
+
 ## Files
 
 - `Core.lua` -- SavedVariables storage, price lookup (AH + vendor merged),

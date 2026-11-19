@@ -96,6 +96,7 @@ function ns.RecordPrice(itemID, price, source)
 	end
 	local store = Store()
 	store.prices[itemID] = { price = price, time = time(), source = source }
+	if ns.RecordHistory then ns.RecordHistory(itemID, price, store.prices[itemID].time, 0) end
 	if MarketScribeDB.wanted then
 		MarketScribeDB.wanted[itemID] = nil
 	end
@@ -126,6 +127,7 @@ function ns.RecordListings(itemID, quantity)
 		if quantity == 0 then l.empty = (l.empty or 0) + 1 end
 	end
 	store.listings[itemID] = l
+	if ns.HistoryListing then ns.HistoryListing(itemID, quantity) end
 end
 
 -- Returns units listed at the last search, when that was, and how many
@@ -629,6 +631,8 @@ SlashCmdList.MARKETSCRIBE = function(msg)
 		else
 			print(tag .. ("ruleset is %s (storing as \"%s\"). Change with /ms realmtype pve|pvp -- prices are kept separate per ruleset and per faction, and only shared with friends on the same one."):format(IsPvERealm() and "PvE" or "PvP", ns.RealmKey()))
 		end
+	elseif msg:match("^show%f[%s%z]") then
+		ns.ToggleGraph(msg:match("^show%s*(.*)$"))
 	elseif msg:match("^price%f[%s%z]") or msg:match("^pricecheck%f[%s%z]") or msg:match("^pc%f[%s%z]") then
 		ns.PriceCheck(msg:gsub("^%S+", "", 1))
 	elseif msg:sub(1, 13) == "forget vendor" then
@@ -671,6 +675,7 @@ SlashCmdList.MARKETSCRIBE = function(msg)
 			print("|cff40c0ffMarketScribe|r: usage: /ms purge <hours> -- removes the AH prices and listing counts you recorded in the last <hours> hours (prices from friends are kept).")
 		else
 			local p, l = ns.PurgeRecent(hours)
+			if ns.PurgeHistory then ns.PurgeHistory(hours) end
 			print(("|cff40c0ffMarketScribe|r: purged %d price(s) and %d listing record(s) recorded in the last %s hour(s)."):format(p, l, tostring(hours)))
 		end
 	elseif msg == "status" then
@@ -684,7 +689,7 @@ SlashCmdList.MARKETSCRIBE = function(msg)
 		end
 		print(("|cff40c0ffMarketScribe|r: %d AH prices and %d vendor prices cached for %s."):format(ahCount, vendorCount, RealmKey()))
 	else
-		print("|cff40c0ffMarketScribe|r commands: /ms realmtype pve|pvp (keep PvE and PvP prices apart), /ms price <item link, itemID or part of a name> (price check, no AH needed; also /ms pc), /ms scan (queue known reagents/outputs while the AH is open; /ms scan stop or clicking the button while it runs stops it), /ms status, /ms undercut (toggle the undercut panel on the Auctions tab), /ms de (Disenchant Scan window: gear that is cheaper than its disenchant value; /ms de scan, /ms de min <silver>), /ms export (get all cached prices as JSON), /ms debug <recipe name> (dump raw reagent slot data), /ms debug vendor (dump the open merchant's raw item data), /ms forget vendor <item/name text> (drop stored vendor prices, keep AH prices), /ms share list|now|off|on|debug (swap prices with friends on your Friends list), /ms neutral [auto|always|off] (Neutral AH protection), /ms purge <hours> (delete prices/listings recorded in the last N hours), /ms share purge [friend] (delete prices received from friends)")
+		print("|cff40c0ffMarketScribe|r commands: /ms realmtype pve|pvp (keep PvE and PvP prices apart), /ms price <item link, itemID or part of a name> (price check, no AH needed; also /ms pc), /ms scan (queue known reagents/outputs while the AH is open; /ms scan stop or clicking the button while it runs stops it), /ms status, /ms undercut (toggle the undercut panel on the Auctions tab), /ms de (Disenchant Scan window: gear that is cheaper than its disenchant value; /ms de scan, /ms de min <silver>), /ms show [item link, itemID or part of a name] (price history window), /ms export (get all cached prices as JSON), /ms debug <recipe name> (dump raw reagent slot data), /ms debug vendor (dump the open merchant's raw item data), /ms forget vendor <item/name text> (drop stored vendor prices, keep AH prices), /ms share list|now|off|on|debug (swap prices with friends on your Friends list), /ms neutral [auto|always|off] (Neutral AH protection), /ms purge <hours> (delete prices/listings recorded in the last N hours), /ms share purge [friend] (delete prices received from friends)")
 	end
 end
 

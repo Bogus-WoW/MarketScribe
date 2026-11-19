@@ -107,6 +107,19 @@ local function OnItemTooltip(tooltip)
 		end
 
 		tooltip:AddLine(("|cff40c0ffMarketScribe|r %s: %s%s"):format(label, ns.FormatMoney(price), suffix))
+		if source ~= "vendor" and ns.Trend then
+			local tr, was, days = ns.Trend(id, 3)
+			if tr then
+				local v = math.floor(math.abs(tr) * 100 + 0.5)
+				local txt, col
+				if v == 0 then txt, col = "unchanged", "aaaaaa"
+				elseif tr > 0 then txt, col = ("+%d%%"):format(v), "40e080"
+				else txt, col = ("-%d%%"):format(v), "ff6060" end
+				local span = (math.floor(days + 0.5) == 3) and "3-day" or ("%.1f-day"):format(days)
+				tooltip:AddLine(("|cff40c0ffMarketScribe|r %s trend: |cff%s%s|r |cff888888(was %s)|r"):format(
+					span, col, txt, ns.FormatMoney(was)))
+			end
+		end
 		AddStackLine(tooltip, label, price)
 
 		-- When a (cheaper) vendor price wins, still show the AH price if we
