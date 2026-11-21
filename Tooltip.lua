@@ -220,7 +220,7 @@ local function GoldDB()
 end
 
 -- Forever characters have a first and a last name, and first names aren't
--- unique ("Bogus Mcstabby" and "Bogus Thundernap"), so characters are kept
+-- unique (two characters can share a first name), so characters are kept
 -- by their GUID, which is unique, with the name stored for display.
 local function NoSpaces(s) return (s or ""):gsub("[%s%-']", ""):lower() end
 
@@ -244,24 +244,133 @@ local function LastName()
 	end
 end
 
+-- Gold history (for the 24 hour line) and per-character session baselines.
+-- goldHist[guid] = { {time, money}, ... }: a sample whenever the gold changed,
+-- at most every SAMPLE_GAP seconds, plus one on every login/logout.
+-- goldSession[guid] = { start = money, t = time }: set at each fresh login
+-- (not on /reload), so a session lasts until you log out and back in.
+local DAY = 86400
+local SAMPLE_GAP = 600
+
+local function Hist()
+	MarketScribeDB.goldHist = MarketScribeDB.goldHist or {}
+	return MarketScribeDB.goldHist
+end
+
+local function Sessions()
+	MarketScribeDB.goldSession = MarketScribeDB.goldSession or {}
+	return MarketScribeDB.goldSession
+end
+
+-- newest saved record for each character across all realm keys, by GUID
+local function NewestChars()
+	local out = {}
+	for _, t in pairs(GoldDB()) do
+		if type(t) == "table" then
+			for key, c in pairs(t) do
+				local k = c.guid or key
+				if not out[k] or (c.time or 0) > (out[k].time or 0) then out[k] = c end
+			end
+		end
+	end
+	return out
+end
+
+local function RecordSample(k, money, now, force)
+	local list = Hist()[k]
+	if not list then list = {}; Hist()[k] = list end
+	local last = list[#list]
+	if last then
+		if last[2] == money then return end
+		if not force and now - last[1] < SAMPLE_GAP then return end
+	end
+	list[#list + 1] = { now, money }
+	-- keep what is newer than 48 hours, plus the newest sample before that
+	local cut, drop = now - 2 * DAY, 0
+	for i = 1, #list - 1 do
+		if list[i + 1][1] <= cut then drop = i else break end
+	end
+	for _ = 1, drop do table.remove(list, 1) end
+end
+
+-- characters saved before history existed start from their last saved gold
+local function EnsureHistory()
+	for k, c in pairs(NewestChars()) do
+		if not Hist()[k] and c.money then
+			RecordSample(k, c.money, c.time or time(), true)
+		end
+	end
+end
+
+local function StartSession(forceNew)
+	local guid = UnitGUID and UnitGUID("player")
+	if not guid then return end
+	local s = Sessions()
+	if forceNew or not s[guid] then s[guid] = { start = GetMoney() or 0, t = time() } end
+end
+
+-- gold change over the last 24 hours across all characters. If a character
+-- has less than 24 hours of history, its earliest sample is used and the
+-- shortest such span is returned as the second value.
+local function DayDelta()
+	local now = time()
+	local cutoff = now - DAY
+	local total, shortest = 0, nil
+	for k, c in pairs(NewestChars()) do
+		local list = Hist()[k]
+		local base, partial
+		if list and #list > 0 then
+			for i = #list, 1, -1 do
+				if list[i][1] <= cutoff then base = list[i][2]; break end
+			end
+			if not base then base = list[1][2]; partial = now - list[1][1] end
+		end
+		if base then
+			total = total + ((c.money or 0) - base)
+			if partial and (not shortest or partial < shortest) then shortest = partial end
+		end
+	end
+	return total, shortest
+end
+
+local function Duration(sec)
+	sec = math.max(0, math.floor(sec or 0))
+	local h, m = math.floor(sec / 3600), math.floor((sec % 3600) / 60)
+	if h > 0 then return ("%dh %02dm"):format(h, m) end
+	return ("%dm"):format(m)
+end
+
+local function Signed(copper)
+	if copper > 0 then return "|cff40ff40+" .. ns.FormatMoney(copper) .. "|r" end
+	if copper < 0 then return "|cffff4040-" .. ns.FormatMoney(-copper) .. "|r" end
+	return "|cff888888" .. ns.FormatMoney(0) .. "|r"
+end
+
 -- `confirmed` is true when the game just told us the gold changed. Otherwise
 -- a 0 is ignored if we already know a higher amount: while logging in or out
 -- the game briefly reports 0 gold.
-local function SaveMyGold(confirmed)
+local function SaveMyGold(confirmed, force)
 	local realm, name, guid = GetRealmName(), UnitName("player"), UnitGUID and UnitGUID("player")
 	if not (realm and name) then return end
 	local key = guid or name
 	local money = GetMoney() or 0
 	local _, class = UnitClass("player")
 	local db = GoldDB()
+	EnsureHistory()
 	db[realm] = db[realm] or {}
 	local old = db[realm][key]
 	if money == 0 and not confirmed and old and (old.money or 0) > 0 then return end
-	-- the old name-only entry is ambiguous (two "Bogus" overwrote each other): drop it
+	-- the old name-only entry is ambiguous (two characters with the same first name overwrote each other): drop it
 	local legacy = db[realm][name]
 	if guid and legacy and not legacy.guid then db[realm][name] = nil end
+	-- the realm name is only technical (and GetRealmName can come back empty),
+	-- so the same character must never be stored under two realm keys
+	for r, t in pairs(db) do
+		if r ~= realm and type(t) == "table" then t[key] = nil end
+	end
 	db[realm][key] = { money = money, class = class, faction = UnitFactionGroup("player"), time = time(),
 		name = name, last = LastName() or (old and old.last), level = UnitLevel("player"), guid = guid }
+	RecordSample(key, money, time(), force)
 end
 
 local function GoldTooltip(owner)
@@ -273,9 +382,30 @@ local function GoldTooltip(owner)
 	for realm in pairs(GoldDB()) do realms[#realms + 1] = realm end
 	table.sort(realms)
 	local myGuid = UnitGUID and UnitGUID("player")
+	-- one entry per character across all realm keys: keep the newest (older
+	-- copies are left from when the realm name was different or empty)
+	local newest = {}
+	for _, realm in ipairs(realms) do
+		for key, c in pairs(GoldDB()[realm]) do
+			local k = c.guid or key
+			if not newest[k] or (c.time or 0) > (newest[k].c.time or 0) then
+				newest[k] = { realm = realm, key = key, c = c }
+			end
+		end
+	end
+	local byRealm = {}
+	for _, e in pairs(newest) do
+		byRealm[e.realm] = byRealm[e.realm] or {}
+		byRealm[e.realm][e.key] = e.c
+	end
+	local shown = {}
+	for _, realm in ipairs(realms) do
+		if byRealm[realm] then shown[#shown + 1] = realm end
+	end
+	realms = shown
 	for _, realm in ipairs(realms) do
 		local chars, seen = {}, {}
-		for key, c in pairs(GoldDB()[realm]) do
+		for key, c in pairs(byRealm[realm]) do
 			local label = c.name or key
 			if c.last then label = label .. " " .. c.last end
 			chars[#chars + 1] = { key = key, c = c, label = label }
@@ -289,10 +419,9 @@ local function GoldTooltip(owner)
 			end
 		end
 		table.sort(chars, function(a, b) return a.c.money > b.c.money end)
-		if #realms > 1 then GameTooltip:AddLine(realm, 0.6, 0.6, 0.6) end
 		for _, e in ipairs(chars) do
 			local color = RAID_CLASS_COLORS and RAID_CLASS_COLORS[e.c.class]
-			local label = (myGuid and e.key == myGuid) and (e.label .. " (you)") or e.label
+			local label = (myGuid and (e.key == myGuid or e.c.guid == myGuid)) and (e.label .. " (you)") or e.label
 			GameTooltip:AddDoubleLine(label, ns.FormatMoney(e.c.money),
 				color and color.r or 1, color and color.g or 1, color and color.b or 1, 1, 1, 1)
 			total = total + e.c.money
@@ -300,6 +429,16 @@ local function GoldTooltip(owner)
 	end
 	GameTooltip:AddLine(" ")
 	GameTooltip:AddDoubleLine("Total", ns.FormatMoney(total), 1, 0.82, 0, 1, 0.82, 0)
+	-- this character's session, and all characters over the last 24 hours
+	local sess = myGuid and Sessions()[myGuid]
+	if sess then
+		GameTooltip:AddDoubleLine(("Session (%s)"):format(Duration(time() - (sess.t or time()))),
+			Signed((GetMoney() or 0) - (sess.start or 0)), 0.8, 0.8, 0.8, 1, 1, 1)
+	end
+	local day, partial = DayDelta()
+	local dayLabel = "Last 24h, all characters"
+	if partial then dayLabel = dayLabel .. (" (only %s tracked)"):format(Duration(partial)) end
+	GameTooltip:AddDoubleLine(dayLabel, Signed(day), 0.8, 0.8, 0.8, 1, 1, 1)
 	GameTooltip:Show()
 end
 
@@ -334,12 +473,20 @@ goldFrame:RegisterEvent("PLAYER_LOGIN")
 goldFrame:RegisterEvent("PLAYER_MONEY")
 goldFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 goldFrame:RegisterEvent("BAG_OPEN")
-goldFrame:SetScript("OnEvent", function(_, event)
+goldFrame:RegisterEvent("PLAYER_LOGOUT")
+goldFrame:SetScript("OnEvent", function(_, event, isInitialLogin)
 	if event == "PLAYER_MONEY" then
 		SaveMyGold(true)
 	elseif event == "PLAYER_ENTERING_WORLD" then
+		-- a fresh login starts a new session; /reload and zoning keep it
+		if isInitialLogin then
+			local guid = UnitGUID and UnitGUID("player")
+			if guid then Sessions()[guid] = nil end
+		end
 		-- gold is known a moment after loading in
-		C_Timer.After(3, function() SaveMyGold(false) end)
+		C_Timer.After(3, function() SaveMyGold(false); StartSession(false) end)
+	elseif event == "PLAYER_LOGOUT" then
+		SaveMyGold(false, true)
 	else
 		SaveMyGold(false)
 	end
@@ -351,3 +498,17 @@ if OpenAllBags then hooksecurefunc("OpenAllBags", function() pcall(HookBagMoney)
 if ToggleBackpack then hooksecurefunc("ToggleBackpack", function() pcall(HookBagMoney) end) end
 if ToggleAllBags then hooksecurefunc("ToggleAllBags", function() pcall(HookBagMoney) end) end
 if ToggleBag then hooksecurefunc("ToggleBag", function() pcall(HookBagMoney) end) end
+
+-- /ms session reset: start this character's session line from the current gold
+do
+	local orig = SlashCmdList.MARKETSCRIBE
+	SlashCmdList.MARKETSCRIBE = function(msg)
+		local m = (msg or ""):lower():match("^%s*(.-)%s*$")
+		if m == "session reset" then
+			StartSession(true)
+			print("|cff40c0ffMarketScribe|r: session gold restarted from now.")
+		elseif orig then
+			orig(msg)
+		end
+	end
+end
