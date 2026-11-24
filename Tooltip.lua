@@ -198,6 +198,10 @@ shiftWatcher:RegisterEvent("MODIFIER_STATE_CHANGED")
 shiftWatcher:SetScript("OnEvent", function(_, _, key)
 	if key ~= "LSHIFT" and key ~= "RSHIFT" then return end
 	if not (GameTooltip and GameTooltip:IsShown()) then return end
+	-- only item tooltips: redrawing a unit tooltip makes the game's own code error
+	-- when the unit is a protected ("secret") value
+	local okItem, _, itemLink = pcall(GameTooltip.GetItem, GameTooltip)
+	if not (okItem and itemLink) then return end
 	if GameTooltip.RefreshData then
 		pcall(GameTooltip.RefreshData, GameTooltip)
 	else

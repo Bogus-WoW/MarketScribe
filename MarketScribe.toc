@@ -2,7 +2,7 @@
 ## Title: MarketScribe
 ## Notes: Shows last-seen auction prices in item tooltips and expected crafting profit in the profession window.
 ## Author: Adam
-## Version: 1.7.0
+## Version: 1.7.1
 ## SavedVariables: MarketScribeDB
 
 Core.lua
